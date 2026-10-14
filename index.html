@@ -3,268 +3,76 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>НейроМастер — проверка прав ВК</title>
+<meta name="nm-check-version" content="photo-probe-20261015">
+<title>НейроМастер — проверка доступа к фото</title>
 <style>
-  :root{
-    --bg:#f7f8fa; --card:#fff; --ink:#19191a; --muted:#6a6f76;
-    --line:#e3e6ea; --accent:#2787f5; --ok:#1c8c3c; --err:#c0392b;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;padding:16px;background:var(--bg);color:var(--ink);
-       font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-  h1{font-size:19px;margin:0 0 4px}
-  .sub{color:var(--muted);font-size:13px;margin-bottom:16px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;
-        padding:16px;margin-bottom:12px}
-  .card h2{font-size:15px;margin:0 0 10px}
-  button{background:var(--accent);color:#fff;border:0;border-radius:8px;
-         padding:10px 16px;font-size:15px;cursor:pointer}
-  button:disabled{background:#c4c8cc;cursor:default}
-  button.ghost{background:#eaf2fd;color:var(--accent)}
-  label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
-  textarea,select,input[type=text]{width:100%;padding:9px;border:1px solid var(--line);
-         border-radius:8px;font:inherit;background:#fff;color:inherit}
-  textarea{min-height:90px;resize:vertical}
-  .res{margin-top:10px;padding:10px;border-radius:8px;background:#f1f3f5;
-       font:13px/1.45 ui-monospace,Consolas,monospace;white-space:pre-wrap;word-break:break-word}
-  .ok{color:var(--ok);font-weight:600}
-  .err{color:var(--err);font-weight:600}
-  .pill{display:inline-block;padding:2px 8px;border-radius:20px;background:#eaf2fd;
-        color:var(--accent);font-size:13px;margin:2px 4px 2px 0}
-  .pill.no{background:#fdeaea;color:var(--err)}
-  #log{max-height:280px;overflow:auto}
+*{box-sizing:border-box}body{margin:0;padding:20px;background:#f7f8fa;color:#192335;font:16px/1.55 system-ui,sans-serif}
+main{max-width:760px;margin:auto}h1{font-size:24px;line-height:1.25}h2{font-size:19px;margin-top:0}
+.card{padding:22px;background:#fff;border:1px solid #dce2eb;border-radius:14px;margin:18px 0}
+button{background:#0867d5;color:white;border:0;border-radius:8px;font:inherit;padding:12px 16px;cursor:pointer}button:disabled{opacity:.45;cursor:default}
+.result{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:15px}.error{color:#a62626}.muted{color:#59677a;font-size:14px}a{color:#0867d5}
 </style>
-</head>
-<body>
-
-<h1>Проверка прав ВК</h1>
-<div class="sub">Приложение «НейроМастер — Публикация постов», ID 54823530. Ничего не публикуется без вашего нажатия.</div>
-
-<div class="card">
-  <h2>Шаг 1. Спросить права</h2>
-  <button id="b1">Спросить права у ВК</button>
-  <div class="res" id="r1">Нажмите кнопку. ВК покажет окно со списком прав.</div>
-</div>
-
-<div class="card">
-  <h2>Шаг 2. Мои сообщества</h2>
-  <button id="b2" disabled>Показать сообщества</button>
-  <div class="res" id="r2">Доступно после шага 1.</div>
-</div>
-
-<div class="card">
-  <h2>Шаг 3. Пробная публикация</h2>
-  <label for="grp">Куда публикуем</label>
-  <select id="grp" disabled><option>Сначала шаг 2</option></select>
-
-  <label for="msg">Текст поста — проверьте перед отправкой</label>
-  <textarea id="msg">Техническая проверка публикации из НейроМастера. Пост можно удалить.</textarea>
-
-  <label for="pic">Фотография — необязательно</label>
-  <input type="file" id="pic" accept="image/jpeg,image/png">
-
-  <div style="margin-top:14px">
-    <button id="b3" disabled>Опубликовать от имени сообщества</button>
-  </div>
-  <div class="res" id="r3">Доступно после шага 2.</div>
-</div>
-
-<div class="card">
-  <h2>Журнал</h2>
-  <div class="res" id="log">—</div>
-</div>
-
+</head><body><main>
+<h1>Проверка доступа к фотографии</h1>
+<p>Группа: <a href="https://vk.ru/neuromastpro" target="_blank" rel="noreferrer">НейроМастер Pro — нейросети для жизни</a></p>
+<p>Текст через ключ группы уже опубликован. Теперь проверяем разрешение на загрузку фото через ваш личный аккаунт.</p>
+<p class="muted">Эта страница не загружает файлы и не создаёт посты. Ключ доступа не выводится и не сохраняется.</p>
+<section class="card"><h2>1. Разрешить доступ</h2>
+<button id="auth">Разрешить доступ к фото</button>
+<div class="result" id="authResult" role="status">Нажмите кнопку и подтвердите запрос ВК.</div></section>
+<section class="card"><h2>2. Проверить возможность загрузки</h2>
+<button id="probe" disabled>Проверить доступ к фото</button>
+<div class="result" id="probeResult" role="status">Сначала выполните первый шаг.</div></section>
+<p class="muted">Приложение 54823530 · проверка photo-probe-20261015</p>
+</main>
 <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
 <script>
 (function(){
   'use strict';
-
-  var APP_ID = 54823530;
-  var V = '5.199';
-  var WANT = ['wall','photos','groups'];
-
-  var token = null;        // в журнал и на экран не выводится никогда
-  var grantedScope = '';
-  var logEl = document.getElementById('log');
-  var lines = [];
-
-  function log(text){
-    var t = new Date().toISOString().slice(11,19);
-    lines.push('[' + t + '] ' + text);
-    if (lines.length > 80) lines.shift();
-    logEl.textContent = lines.join('\n');
-    logEl.scrollTop = logEl.scrollHeight;
+  var APP_ID=54823530, GROUP_ID=148024982, token=null, generation=0;
+  var auth=document.getElementById('auth'), probe=document.getElementById('probe');
+  function show(id,text,error){var el=document.getElementById(id);el.textContent=text;el.classList.toggle('error',!!error)}
+  function errorText(e){
+    var d=(e&&e.error_data)||e||{};
+    if(d.error&&typeof d.error==='object')d=d.error;
+    var message=d.error_reason||d.error_msg||d.error_description||d.message||'Причина не указана';
+    if(typeof message!=='string')message='ВК отклонил запрос';
+    if(token)message=message.split(token).join('[скрыто]');
+    message=message.replace(/vk[12]\.a\.[A-Za-z0-9_-]+/g,'[скрыто]');
+    return (d.error_code!==undefined?'Ошибка '+String(d.error_code)+'. ':'')+message.slice(0,600);
   }
-  function show(id, html){ document.getElementById(id).innerHTML = html; }
-  function esc(s){ return String(s).replace(/[<>&]/g, function(c){
-    return c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&amp;'; }); }
-  function errText(e){
-    if (!e) return 'нет данных';
-    var d = e.error_data || e;
-    return esc(d.error_reason || d.error_msg || d.error_description || d.message || JSON.stringify(e));
-  }
-
-  if (typeof vkBridge === 'undefined'){
-    show('r1', '<span class="err">Библиотека VK Bridge не загрузилась.</span> Проверьте интернет и обновите страницу.');
-    log('vk-bridge не загрузился с unpkg');
-    return;
-  }
-
-  vkBridge.send('VKWebAppInit', {})
-    .then(function(){ log('VKWebAppInit — успешно, приложение открыто внутри ВК'); })
-    .catch(function(e){ log('VKWebAppInit — ошибка: ' + errText(e)); });
-
-  // Шаг 1 — запрос прав
-  document.getElementById('b1').onclick = function(){
-    var btn = this; btn.disabled = true;
-    show('r1', 'Ждём ответ ВК…');
-    log('VKWebAppGetAuthToken, запрошено: ' + WANT.join(','));
-
-    vkBridge.send('VKWebAppGetAuthToken', { app_id: APP_ID, scope: WANT.join(',') })
-      .then(function(data){
-        token = data.access_token || null;
-        grantedScope = data.scope || '';
-        var got = grantedScope ? grantedScope.split(',').map(function(s){return s.trim();}) : [];
-        var html = '';
-        WANT.forEach(function(w){
-          var has = got.indexOf(w) !== -1;
-          html += '<span class="pill' + (has ? '' : ' no') + '">' + w + (has ? ' — выдано' : ' — НЕ выдано') + '</span>';
-        });
-        html += '<br><br>Ответ ВК, поле scope: <b>' + esc(grantedScope || '(пусто)') + '</b>';
-        html += '<br>Ключ получен: ' + (token ? '<span class="ok">да</span>' : '<span class="err">нет</span>')
-             + ' (на экран не выводится)';
-        show('r1', html);
-        log('Права выданы: ' + (grantedScope || '(пусто)'));
-        if (got.indexOf('groups') !== -1) document.getElementById('b2').disabled = false;
-        if (!token) log('ВНИМАНИЕ: ключ доступа не получен');
-      })
-      .catch(function(e){
-        var d = (e && e.error_data) || e || {};
-        var parts = [];
-        if (d.error_code !== undefined) parts.push('код: ' + d.error_code);
-        if (d.error_reason) parts.push('причина: ' + esc(d.error_reason));
-        if (d.error_description) parts.push('описание: ' + esc(d.error_description));
-        if (d.error_msg) parts.push('сообщение: ' + esc(d.error_msg));
-        if (!parts.length) parts.push(esc(JSON.stringify(e)));
-        show('r1', '<span class="err">Права не получены.</span><br>' + parts.join('<br>')
-          + '<br><br>Это ещё не вывод: так же выглядит отмена окна пользователем '
-          + 'и сбой окружения. Пришлите этот экран — разберём по коду.');
-        log('VKWebAppGetAuthToken — не получено: ' + parts.join(' · '));
-        btn.disabled = false;
-      });
-  };
-
-  function api(method, params){
-    var p = {};
-    for (var k in params) if (params.hasOwnProperty(k)) p[k] = params[k];
-    p.v = V;
-    p.access_token = token;
-    return vkBridge.send('VKWebAppCallAPIMethod', { method: method, params: p })
-      .then(function(r){
-        if (r && r.error) throw r.error;
-        return r.response;
-      });
-  }
-
-  // Шаг 2 — сообщества
-  document.getElementById('b2').onclick = function(){
-    var btn = this; btn.disabled = true;
-    show('r2', 'Запрашиваем список…');
-    log('groups.get filter=admin');
-
-    api('groups.get', { filter: 'admin', extended: 1, count: 100 })
-      .then(function(resp){
-        var items = (resp && resp.items) || [];
-        var sel = document.getElementById('grp');
-        sel.innerHTML = '';
-        if (!items.length){
-          show('r2', '<span class="err">Сообществ, где вы администратор, не вернулось.</span>');
-          log('groups.get вернул пустой список');
-          btn.disabled = false; return;
-        }
-        var html = 'Найдено сообществ: ' + items.length + '<br>';
-        items.forEach(function(g){
-          var o = document.createElement('option');
-          o.value = g.id; o.textContent = g.name + '  (ID ' + g.id + ')';
-          sel.appendChild(o);
-          html += '• ' + esc(g.name) + ' — ID <b>' + g.id + '</b><br>';
-        });
-        sel.disabled = false;
-        document.getElementById('b3').disabled = false;
-        show('r2', html);
-        show('r3', 'Проверьте текст и получателя, затем нажмите кнопку.');
-        log('groups.get — получено ' + items.length);
-      })
-      .catch(function(e){
-        show('r2', '<span class="err">Ошибка.</span><br>' + errText(e));
-        log('groups.get — ошибка: ' + errText(e));
-        btn.disabled = false;
-      });
-  };
-
-  // Шаг 3 — публикация
-  document.getElementById('b3').onclick = function(){
-    var btn = this;
-    var gid = parseInt(document.getElementById('grp').value, 10);
-    var gname = document.getElementById('grp').selectedOptions[0].textContent;
-    var msg = document.getElementById('msg').value.trim();
-    var file = document.getElementById('pic').files[0] || null;
-
-    if (!msg && !file){ show('r3', '<span class="err">Нужен текст или фотография.</span>'); return; }
-    if (!window.confirm('Опубликовать в «' + gname + '» от имени сообщества?\n\n'
-        + (msg || '(без текста)') + '\n\n' + (file ? 'С фотографией: ' + file.name : 'Без фотографии'))) return;
-
-    btn.disabled = true;
-    show('r3', 'Публикуем…');
-
-    var chain = Promise.resolve(null);
-
-    if (file){
-      log('photos.getWallUploadServer group_id=' + gid);
-      chain = api('photos.getWallUploadServer', { group_id: gid })
-        .then(function(srv){
-          log('Загружаем файл на сервер ВК');
-          var fd = new FormData();
-          fd.append('photo', file, file.name);
-          return fetch(srv.upload_url, { method: 'POST', body: fd })
-            .then(function(r){ return r.json(); });
-        })
-        .then(function(up){
-          log('photos.saveWallPhoto');
-          return api('photos.saveWallPhoto', {
-            group_id: gid, server: up.server, photo: up.photo, hash: up.hash });
-        })
-        .then(function(saved){
-          var ph = saved[0];
-          var att = 'photo' + ph.owner_id + '_' + ph.id;
-          log('Фотография загружена: ' + att);
-          return att;
-        });
-    }
-
-    chain.then(function(att){
-      var params = { owner_id: -gid, from_group: 1 };
-      if (msg) params.message = msg;
-      if (att) params.attachments = att;
-      log('wall.post owner_id=' + (-gid) + ' from_group=1');
-      return api('wall.post', params);
-    })
-    .then(function(resp){
-      var link = 'https://vk.ru/wall-' + gid + '_' + resp.post_id;
-      show('r3', '<span class="ok">Опубликовано.</span><br>Номер записи: ' + resp.post_id
-        + '<br><a href="' + link + '" target="_blank">' + link + '</a>');
-      log('wall.post — успешно, post_id=' + resp.post_id);
-      btn.disabled = false;
-    })
-    .catch(function(e){
-      show('r3', '<span class="err">Не опубликовано.</span><br>' + errText(e));
-      log('Публикация — ошибка: ' + errText(e));
-      btn.disabled = false;
+  function call(method,params){
+    return new Promise(function(resolve,reject){
+      var timer=setTimeout(function(){reject(new Error('ВК не ответил за 25 секунд. Повторите проверку позже.'))},25000);
+      Promise.resolve().then(function(){return vkBridge.send(method,params)}).then(function(data){clearTimeout(timer);resolve(data)},function(e){clearTimeout(timer);reject(e)});
     });
+  }
+  if(typeof vkBridge==='undefined'){
+    auth.disabled=true;show('authResult','Библиотека ВК не загрузилась. Обновите страницу.',true);return;
+  }
+  if(window.parent===window&&!/vk_app_id=/.test(location.search)){
+    auth.disabled=true;show('authResult','Откройте эту проверку внутри ВК: https://vk.ru/app54823530',true);return;
+  }
+  call('VKWebAppInit',{}).catch(function(e){show('authResult',errorText(e),true)});
+  auth.onclick=function(){
+    var current=++generation;token=null;auth.disabled=true;probe.disabled=true;
+    show('authResult','Ждём разрешение ВК…');show('probeResult','Сначала выполните первый шаг.');
+    call('VKWebAppGetAuthToken',{app_id:APP_ID,scope:'photos'}).then(function(data){
+      if(current!==generation)return;
+      token=data.access_token||null;
+      if(!token)throw new Error('ВК не вернул ключ доступа.');
+      show('authResult','Ключ личного аккаунта получен. Теперь нажмите «Проверить доступ к фото».');
+      probe.disabled=false;
+    }).catch(function(e){if(current===generation)show('authResult',errorText(e),true)}).finally(function(){if(current===generation)auth.disabled=false});
   };
-
-  log('Страница загружена, ждём действий');
+  probe.onclick=function(){
+    if(!token)return;
+    probe.disabled=true;auth.disabled=true;show('probeResult','Проверяем разрешение для группы НейроМастер…');
+    call('VKWebAppCallAPIMethod',{method:'photos.getWallUploadServer',params:{group_id:GROUP_ID,v:'5.199',access_token:token}}).then(function(data){
+      if(data&&data.error)throw data.error;
+      if(!data||!data.response||!data.response.upload_url)throw new Error('ВК не вернул адрес загрузки.');
+      show('probeResult','Доступ к загрузке фото получен. Фотография ещё не загружалась, пост не создавался. Пришлите этот результат.');
+    }).catch(function(e){show('probeResult',errorText(e)+'\nФотография не загружалась, пост не создавался.',true)}).finally(function(){probe.disabled=false;auth.disabled=false});
+  };
 })();
-</script>
-</body>
-</html>
+</script></body></html>
