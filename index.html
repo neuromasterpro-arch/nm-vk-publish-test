@@ -1,78 +1,153 @@
 <!doctype html>
-<html lang="ru">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="nm-check-version" content="photo-probe-20261015">
-<title>НейроМастер — проверка доступа к фото</title>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer"><meta name="nm-check-version" content="photo-upload-20261015-1">
+<title>НейроМастер — загрузка фотографии</title>
 <style>
 *{box-sizing:border-box}body{margin:0;padding:20px;background:#f7f8fa;color:#192335;font:16px/1.55 system-ui,sans-serif}
 main{max-width:760px;margin:auto}h1{font-size:24px;line-height:1.25}h2{font-size:19px;margin-top:0}
-.card{padding:22px;background:#fff;border:1px solid #dce2eb;border-radius:14px;margin:18px 0}
-button{background:#0867d5;color:white;border:0;border-radius:8px;font:inherit;padding:12px 16px;cursor:pointer}button:disabled{opacity:.45;cursor:default}
-.result{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:15px}.error{color:#a62626}.muted{color:#59677a;font-size:14px}a{color:#0867d5}
-</style>
-</head><body><main>
-<h1>Проверка доступа к фотографии</h1>
+.card{padding:22px;background:white;border:1px solid #dce2eb;border-radius:14px;margin:18px 0}
+button{background:#0867d5;color:white;border:0;border-radius:8px;font:inherit;padding:12px 16px;cursor:pointer}
+button:disabled{opacity:.45;cursor:default}input{font:inherit;max-width:100%}a{color:#0867d5}
+.result{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:15px}.error{color:#a62626}.muted{color:#59677a;font-size:14px}
+img{display:block;max-width:100%;max-height:360px;object-fit:contain;margin:18px 0;border-radius:8px}[hidden]{display:none!important}
+</style></head><body><main>
+<h1>Загрузка фотографии для поста</h1>
 <p>Группа: <a href="https://vk.ru/neuromastpro" target="_blank" rel="noreferrer">НейроМастер Pro — нейросети для жизни</a></p>
-<p>Текст через ключ группы уже опубликован. Теперь проверяем разрешение на загрузку фото через ваш личный аккаунт.</p>
-<p class="muted">Эта страница не загружает файлы и не создаёт посты. Ключ доступа не выводится и не сохраняется.</p>
+<p>Выберите тестовую фотографию. Кнопка ниже загрузит и сохранит её в ВК для будущего поста.</p>
+<p class="muted">Пост на стене пока не создаётся. После загрузки фотография будет храниться в ВК. Ключ доступа остаётся в памяти этой вкладки.</p>
 <section class="card"><h2>1. Разрешить доступ</h2>
 <button id="auth">Разрешить доступ к фото</button>
-<div class="result" id="authResult" role="status">Нажмите кнопку и подтвердите запрос ВК.</div></section>
-<section class="card"><h2>2. Проверить возможность загрузки</h2>
-<button id="probe" disabled>Проверить доступ к фото</button>
-<div class="result" id="probeResult" role="status">Сначала выполните первый шаг.</div></section>
-<p class="muted">Приложение 54823530 · проверка photo-probe-20261015</p>
-</main>
-<script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
+<div id="authResult" class="result" role="status">Подтвердите запрос ВК.</div></section>
+<section class="card"><h2>2. Выбрать и загрузить фотографию</h2>
+<label for="file">Одна фотография JPG или PNG, до 10 МБ</label><p><input id="file" type="file" accept="image/jpeg,image/png" disabled></p>
+<img id="preview" alt="Выбранная фотография" hidden>
+<div id="fileResult" class="result" role="status"></div>
+<button id="upload" disabled>Загрузить эту фотографию в ВК</button>
+<div id="uploadResult" class="result" role="status">Сначала разрешите доступ и выберите фото.</div>
+<p><a id="photoLink" target="_blank" rel="noreferrer" hidden>Открыть сохранённую фотографию</a></p>
+</section>
+<p class="muted">Приложение 54823530 · photo-upload-20261015-1</p>
+</main><script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
 <script>
 (function(){
   'use strict';
-  var APP_ID=54823530, GROUP_ID=148024982, token=null, generation=0;
-  var auth=document.getElementById('auth'), probe=document.getElementById('probe');
-  function show(id,text,error){var el=document.getElementById(id);el.textContent=text;el.classList.toggle('error',!!error)}
-  function errorText(e){
-    var d=(e&&e.error_data)||e||{};
-    if(d.error&&typeof d.error==='object')d=d.error;
-    var message=d.error_reason||d.error_msg||d.error_description||d.message||'Причина не указана';
-    if(typeof message!=='string')message='ВК отклонил запрос';
-    if(token)message=message.split(token).join('[скрыто]');
-    message=message.replace(/vk[12]\.a\.[A-Za-z0-9_-]+/g,'[скрыто]');
-    return (d.error_code!==undefined?'Ошибка '+String(d.error_code)+'. ':'')+message.slice(0,600);
+  var APP_ID=54823530, GROUP_ID=148024982, token=null, chosen=null, previewURL=null;
+  var busy=false, terminal=false, selection=0, uploadURL='', phase='idle';
+  var $=function(id){return document.getElementById(id)};
+  function show(id,text,error){$(id).textContent=text;$(id).classList.toggle('error',!!error)}
+  function controls(){
+    $('auth').disabled=busy||terminal;
+    $('file').disabled=busy||terminal||!token;
+    $('upload').disabled=busy||terminal||!token||!chosen;
   }
-  function call(method,params){
+  function safeMessage(error){
+    var d=(error&&error.error_data)||error||{};
+    if(d.error&&typeof d.error==='object')d=d.error;
+    var msg=d.error_reason||d.error_msg||d.error_description||d.message||'ВК отклонил запрос.';
+    if(typeof msg!=='string')msg='ВК отклонил запрос.';
+    if(token)msg=msg.split(token).join('[скрыто]');
+    if(uploadURL)msg=msg.split(uploadURL).join('[адрес скрыт]');
+    msg=msg.replace(/vk[12]\.a\.[A-Za-z0-9_-]+/g,'[скрыто]').replace(/https?:\/\/\S+/g,'[адрес скрыт]');
+    return (Number.isInteger(d.error_code)?'Ошибка '+d.error_code+'. ':'')+msg.slice(0,500);
+  }
+  function bridge(method,params){
     return new Promise(function(resolve,reject){
-      var timer=setTimeout(function(){reject(new Error('ВК не ответил за 25 секунд. Повторите проверку позже.'))},25000);
-      Promise.resolve().then(function(){return vkBridge.send(method,params)}).then(function(data){clearTimeout(timer);resolve(data)},function(e){clearTimeout(timer);reject(e)});
+      var timer=setTimeout(function(){reject(new Error('ВК не ответил за 30 секунд.'))},30000);
+      Promise.resolve().then(function(){return vkBridge.send(method,params)}).then(function(r){clearTimeout(timer);resolve(r)},function(e){clearTimeout(timer);reject(e)});
     });
   }
+  async function api(method,params){
+    var data=await bridge('VKWebAppCallAPIMethod',{method:method,params:Object.assign({},params,{v:'5.199',access_token:token})});
+    if(data&&data.error)throw data.error;
+    if(!data||data.response===undefined)throw new Error('ВК вернул неполный ответ.');
+    return data.response;
+  }
+  function trustedUpload(value){
+    var u=new URL(value), roots=['vk.com','vk.ru','userapi.com','vk-cdn.net'];
+    if(u.protocol!=='https:'||u.username||u.password||u.port||!roots.some(function(root){return u.hostname===root||u.hostname.endsWith('.'+root)}))
+      throw new Error('ВК вернул неожиданный адрес загрузки. Файл не отправлен.');
+    return u.href;
+  }
+  async function sendFile(address,file){
+    var body=new FormData();body.append('photo',file,file.type==='image/png'?'photo.png':'photo.jpg');
+    var controller=new AbortController();
+    var timer=setTimeout(function(){controller.abort()},45000);
+    try{
+      var response=await fetch(address,{method:'POST',body:body,mode:'cors',credentials:'omit',redirect:'error',referrerPolicy:'no-referrer',signal:controller.signal});
+      if(!response.ok)throw new Error('Сервер загрузки вернул HTTP '+response.status+'.');
+      var raw=await response.text();
+      if(raw.length>1024*1024)throw new Error('Сервер загрузки вернул слишком большой ответ.');
+      var result=JSON.parse(raw);
+      if(!result||!Number.isInteger(result.server)||typeof result.photo!=='string'||!result.photo||result.photo==='[]'||typeof result.hash!=='string'||!result.hash)
+        throw new Error('ВК не подтвердил приём фотографии.');
+      return {server:result.server,photo:result.photo,hash:result.hash};
+    }finally{clearTimeout(timer)}
+  }
   if(typeof vkBridge==='undefined'){
-    auth.disabled=true;show('authResult','Библиотека ВК не загрузилась. Обновите страницу.',true);return;
+    $('auth').disabled=true;show('authResult','Библиотека ВК не загрузилась. Обновите страницу.',true);return;
   }
   if(window.parent===window&&!/vk_app_id=/.test(location.search)){
-    auth.disabled=true;show('authResult','Откройте эту проверку внутри ВК: https://vk.ru/app54823530',true);return;
+    $('auth').disabled=true;show('authResult','Откройте страницу внутри ВК: https://vk.ru/app54823530',true);return;
   }
-  call('VKWebAppInit',{}).catch(function(e){show('authResult',errorText(e),true)});
-  auth.onclick=function(){
-    var current=++generation;token=null;auth.disabled=true;probe.disabled=true;
-    show('authResult','Ждём разрешение ВК…');show('probeResult','Сначала выполните первый шаг.');
-    call('VKWebAppGetAuthToken',{app_id:APP_ID,scope:'photos'}).then(function(data){
-      if(current!==generation)return;
-      token=data.access_token||null;
-      if(!token)throw new Error('ВК не вернул ключ доступа.');
-      show('authResult','Ключ личного аккаунта получен. Теперь нажмите «Проверить доступ к фото».');
-      probe.disabled=false;
-    }).catch(function(e){if(current===generation)show('authResult',errorText(e),true)}).finally(function(){if(current===generation)auth.disabled=false});
+  bridge('VKWebAppInit',{}).catch(function(e){show('authResult',safeMessage(e),true)});
+  $('auth').onclick=async function(){
+    if(busy||terminal)return;
+    busy=true;token=null;controls();show('authResult','Ждём разрешение ВК…');
+    try{
+      var data=await bridge('VKWebAppGetAuthToken',{app_id:APP_ID,scope:'photos'});
+      if(!data||typeof data.access_token!=='string'||!data.access_token)throw new Error('ВК не вернул ключ доступа.');
+      token=data.access_token;show('authResult','Доступ разрешён. Выберите фотографию ниже.');
+    }catch(e){show('authResult',safeMessage(e),true)}finally{busy=false;controls()}
   };
-  probe.onclick=function(){
-    if(!token)return;
-    probe.disabled=true;auth.disabled=true;show('probeResult','Проверяем разрешение для группы НейроМастер…');
-    call('VKWebAppCallAPIMethod',{method:'photos.getWallUploadServer',params:{group_id:GROUP_ID,v:'5.199',access_token:token}}).then(function(data){
-      if(data&&data.error)throw data.error;
-      if(!data||!data.response||!data.response.upload_url)throw new Error('ВК не вернул адрес загрузки.');
-      show('probeResult','Доступ к загрузке фото получен. Фотография ещё не загружалась, пост не создавался. Пришлите этот результат.');
-    }).catch(function(e){show('probeResult',errorText(e)+'\nФотография не загружалась, пост не создавался.',true)}).finally(function(){probe.disabled=false;auth.disabled=false});
+  $('file').onchange=async function(){
+    if(busy||terminal)return;
+    var current=++selection;chosen=null;$('preview').hidden=true;
+    if(previewURL){URL.revokeObjectURL(previewURL);previewURL=null}
+    controls();var file=$('file').files[0];
+    if(!file){show('fileResult','Фотография не выбрана.');return}
+    try{
+      if(!['image/jpeg','image/png'].includes(file.type)||file.size<=0||file.size>10*1024*1024)
+        throw new Error('Выберите JPG или PNG размером до 10 МБ.');
+      var magic=new Uint8Array(await file.slice(0,8).arrayBuffer());
+      if(current!==selection)return;
+      var png=[137,80,78,71,13,10,26,10].every(function(n,i){return magic[i]===n});
+      var jpg=magic[0]===255&&magic[1]===216&&magic[2]===255;
+      if(!(file.type==='image/png'?png:jpg))throw new Error('Содержимое файла не похоже на выбранный формат фотографии.');
+      previewURL=URL.createObjectURL(file);$('preview').src=previewURL;$('preview').hidden=false;
+      chosen=file;show('fileResult',file.name+' · '+(file.size/1024/1024).toFixed(2)+' МБ');
+    }catch(e){show('fileResult',safeMessage(e),true)}finally{if(current===selection)controls()}
   };
+  $('preview').onerror=function(){if(!busy&&!terminal){chosen=null;controls();show('fileResult','Браузер не смог показать фотографию. Выберите другой файл.',true)}};
+  $('upload').onclick=async function(){
+    if(busy||terminal||!token||!chosen)return;
+    busy=true;controls();phase='address';
+    show('uploadResult','Получаем адрес загрузки…');
+    try{
+      var server=await api('photos.getWallUploadServer',{group_id:GROUP_ID});
+      if(!server||!server.upload_url)throw new Error('ВК не вернул адрес загрузки.');
+      uploadURL=trustedUpload(server.upload_url);
+      phase='upload';show('uploadResult','Загружаем выбранную фотографию…');
+      var uploaded=await sendFile(uploadURL,chosen);
+      phase='save';show('uploadResult','Фотография передана. Сохраняем её в ВК…');
+      var saved=await api('photos.saveWallPhoto',{group_id:GROUP_ID,server:uploaded.server,photo:uploaded.photo,hash:uploaded.hash});
+      var photo=Array.isArray(saved)&&saved.length===1?saved[0]:null;
+      if(!photo||!Number.isSafeInteger(photo.owner_id)||photo.owner_id===0||!Number.isSafeInteger(photo.id)||photo.id<=0)
+        throw new Error('ВК не вернул номер сохранённой фотографии.');
+      terminal=true;phase='saved';
+      // Keep owner_id returned by VK: it can be the user, even for a community upload.
+      var attachment='photo'+photo.owner_id+'_'+photo.id;
+      $('photoLink').href='https://vk.ru/'+attachment;$('photoLink').hidden=false;
+      show('uploadResult','Фотография сохранена в ВК. Пост ещё не создан.\nНомер фото: '+attachment+'\nПришлите этот результат.');
+    }catch(e){
+      if(phase==='address')show('uploadResult','Адрес загрузки не получен. '+safeMessage(e),true);
+      else if(phase==='upload'){
+        terminal=true;show('uploadResult','Загрузка не подтверждена: браузер не получил правильный ответ ВК. Причиной может быть соединение или запрет загрузки с этой страницы. Пост не создавался. Пришлите этот результат; повтор отключён.',true);
+      }else{
+        terminal=true;show('uploadResult','Сохранение фотографии не подтверждено. '+safeMessage(e)+'\nПост не создавался. Пришлите этот результат; повтор отключён.',true);
+      }
+    }finally{uploadURL='';busy=false;controls()}
+  };
+  controls();
 })();
 </script></body></html>
