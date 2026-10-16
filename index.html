@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ru"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="referrer" content="no-referrer"><meta name="nm-check-version" content="photo-jobs-20261016-1">
+<meta name="referrer" content="no-referrer"><meta name="nm-check-version" content="photo-jobs-20261017-2">
 <title>НейроМастер — подготовка фотографий ВКонтакте</title>
 <style>
 *{box-sizing:border-box}body{margin:0;padding:20px;background:#f7f8fa;color:#192335;font:16px/1.5 system-ui,sans-serif}
@@ -30,14 +30,14 @@ figure{margin:0;border:1px solid #dce2eb;border-radius:10px;overflow:hidden}figu
 <button id="prepare" type="button" disabled>Подготовить фотографии</button>
 <div id="progress" class="result" role="status" aria-live="polite"></div>
 </section>
-<p id="returnLink" hidden><strong>Вернитесь во вкладку НейроМастера, где выбрали фотографии. Там нажмите «Опубликовать в ВКонтакте».</strong></p>
+<p id="returnLink" hidden>Вернитесь во вкладку НейроМастера, где выбрали фотографии, и проверьте результат. Не отправляйте фотографии повторно.</p>
 <p class="muted">Ключ доступа ВКонтакте остаётся в этой вкладке. Здесь фотографии сохраняются в ВК; публикация поста не выполняется.</p>
-<p class="muted">Приложение 54823530 · photo-jobs-20261016-1</p>
+<p class="muted">Приложение 54823530 · photo-jobs-20261017-2</p>
 </main><script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
 <script>
 (function(){
   'use strict';
-  var APP_ID=54823530,VERSION='photo-jobs-20261016-1',API='https://vpsneuromaster.ru/vk-photo-pilot/jobs/';
+  var APP_ID=54823530,VERSION='photo-jobs-20261017-2',PROTOCOL_VERSION='photo-jobs-20261016-1',API='https://vpsneuromaster.ru/vk-photo-pilot/jobs/';
   var MAX_IMAGE=4*1024*1024,MAX_TOTAL=8*1024*1024;
   var jobId='',appKey='',job=null,token='',uploadURL='',uploadHash='',photoAccessKey='';
   var busy=false,terminal=false,disposed=false,started=false,hashCleared=false,operation=0,activeFetch=null;
@@ -151,14 +151,15 @@ figure{margin:0;border:1px solid #dce2eb;border-radius:10px;overflow:hidden}figu
   }
   function completed(){
     terminal=true;job.state='done';$('prepare').hidden=true;$('returnLink').hidden=false;
-    show('progress','Фотографии готовы. Вернитесь на страницу НейроМастера и нажмите «Опубликовать».');
+    show('progress','Фотографии готовы.');
+    $('returnLink').textContent='Вернитесь во вкладку НейроМастера, где выбрали фотографии. Там нажмите «Опубликовать в ВКонтакте».';
   }
   async function openJob(data){
     if(!data||busy||terminal||disposed||jobId)return;
     var run=++operation;busy=true;jobId=data.id;appKey=data.key;controls();show('connectionResult','Открываем фотографии с сайта…');
     try{
       var result=await request('open',{job_id:jobId},30000);ensure(run);
-      if(!result||result.ok!==true||result.version!==VERSION||!Number.isSafeInteger(result.group_id)||result.group_id<=0||
+      if(!result||result.ok!==true||result.version!==PROTOCOL_VERSION||!Number.isSafeInteger(result.group_id)||result.group_id<=0||
         typeof result.group_name!=='string'||!result.group_name.trim()||result.group_name.length>300||
         !Number.isInteger(result.total)||result.total<1||result.total>3||!Number.isInteger(result.completed)||result.completed<0||result.completed>result.total||
         !['waiting','working','done','failed'].includes(result.state)||
@@ -238,7 +239,10 @@ figure{margin:0;border:1px solid #dce2eb;border-radius:10px;overflow:hidden}figu
       if(disposed)return;
       terminal=true;var label=phase==='auth'?'Доступ к фотографиям не получен. ':phase==='address'?'Не получен адрес загрузки. ':
         phase==='record'?'Не получено подтверждение сайта. ':phase==='save'?'Сохранение фотографии не подтверждено. ':'Подготовка фотографии остановлена. ';
-      show('progress',label+safeMessage(error)+'\nВернитесь в НейроМастер и проверьте результат. Пост не создавался. Повтор отключён.',true);
+      var diagnostic=safeMessage(error),details=label+diagnostic;
+      if(!/пост не создавал[а-яё]*/i.test(diagnostic))details+='\nПост не создавался.';
+      if(!/повтор[^.\n]{0,30}отключ[её]н/i.test(diagnostic))details+='\nПовтор отключён.';
+      show('progress',details,true);
       $('returnLink').hidden=false;
       try{await request('fail',{job_id:jobId},5000)}catch(ignored){}
     }finally{clearSecrets();busy=false;controls()}
