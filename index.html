@@ -1,21 +1,21 @@
 <!doctype html>
 <html lang="ru"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="referrer" content="no-referrer"><meta name="nm-check-version" content="photo-jobs-20261017-2">
-<title>НейроМастер — подготовка фотографий ВКонтакте</title>
+<meta name="referrer" content="no-referrer"><meta name="nm-check-version" content="photo-publish-20261018-1">
+<title>НейроМастер — публикация ВКонтакте</title>
 <style>
 *{box-sizing:border-box}body{margin:0;padding:20px;background:#f7f8fa;color:#192335;font:16px/1.5 system-ui,sans-serif}
 main{max-width:780px;margin:auto}h1{font-size:25px;line-height:1.25;margin:0 0 12px}h2{font-size:19px;margin:0 0 12px}
 .card{padding:20px;background:#fff;border:1px solid #dce2eb;border-radius:14px;margin:16px 0}
-button{display:inline-block;background:#0867d5;color:#fff;border:0;border-radius:8px;font:inherit;min-height:48px;padding:12px 16px;cursor:pointer;text-align:center;text-decoration:none}
+button,.button{display:inline-block;background:#0867d5;color:#fff;border:0;border-radius:8px;font:inherit;min-height:48px;padding:12px 16px;cursor:pointer;text-align:center;text-decoration:none}
 button:disabled{opacity:.45;cursor:default}input{font:inherit;width:100%;min-height:48px;padding:10px;border:1px solid #b7c5d8;border-radius:8px}
 .result{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px}.error{color:#a62626}.muted{color:#59677a;font-size:14px}
 .gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:12px;margin:16px 0}
 figure{margin:0;border:1px solid #dce2eb;border-radius:10px;overflow:hidden}figure img{display:block;width:100%;height:190px;object-fit:contain;background:#f7f8fa}figcaption{padding:8px 10px;color:#59677a;font-size:14px}
-[hidden]{display:none!important}@media(max-width:500px){body{padding:12px}.card{padding:16px}button{width:100%}h1{font-size:22px}.gallery{grid-template-columns:1fr}figure img{height:220px}}
+[hidden]{display:none!important}@media(max-width:500px){body{padding:12px}.card{padding:16px}button,.button{width:100%}h1{font-size:22px}.gallery{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}figure img{height:100px}figcaption{padding:6px;font-size:12px}}
 </style></head><body><main>
-<h1>Подготовить фотографии для поста</h1>
-<p>Разрешите доступ к фотографиям и подтвердите их загрузку. Пост вы опубликуете отдельной кнопкой на сайте НейроМастера.</p>
+<h1 id="heading">Публикация ВКонтакте</h1>
+<p id="intro">Открываем выбранный пост. Если ВКонтакте запросит доступ к фотографиям, разрешите его в появившемся окне.</p>
 <section class="card" id="connectCard">
 <h2>Открыть фотографии с сайта</h2>
 <p class="muted">Если фотографии не открылись автоматически, скопируйте код на странице НейроМастера и вставьте его сюда.</p>
@@ -28,27 +28,31 @@ figure{margin:0;border:1px solid #dce2eb;border-radius:10px;overflow:hidden}figu
 <h2>Сообщество: <span id="groupName"></span></h2>
 <div id="gallery" class="gallery" aria-label="Фотографии в порядке публикации"></div>
 <button id="prepare" type="button" disabled>Подготовить фотографии</button>
+<button id="checkStatus" type="button" hidden>Проверить результат</button>
 <div id="progress" class="result" role="status" aria-live="polite"></div>
+<p><a id="postLink" class="button" href="#" target="_blank" rel="noopener noreferrer" hidden>Открыть пост</a></p>
 </section>
 <p id="returnLink" hidden>Вернитесь во вкладку НейроМастера, где выбрали фотографии, и проверьте результат. Не отправляйте фотографии повторно.</p>
-<p class="muted">Ключ доступа ВКонтакте остаётся в этой вкладке. Здесь фотографии сохраняются в ВК; публикация поста не выполняется.</p>
-<p class="muted">Приложение 54823530 · photo-jobs-20261017-2</p>
+<p id="privacy" class="muted">Публикация от имени выбранного сообщества.</p>
 </main><script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
 <script>
 (function(){
   'use strict';
-  var APP_ID=54823530,VERSION='photo-jobs-20261017-2',PROTOCOL_VERSION='photo-jobs-20261016-1',API='https://vpsneuromaster.ru/vk-photo-pilot/jobs/';
+  var APP_ID=54823530,PROTOCOL_VERSION='photo-jobs-20261016-1',PUBLISH_VERSION='photo-publish-20261018-1',PUBLISH_MODE='publish_after_photos',API='https://vpsneuromaster.ru/vk-photo-pilot/jobs/';
   var MAX_IMAGE=4*1024*1024,MAX_TOTAL=8*1024*1024;
   var jobId='',appKey='',job=null,token='',uploadURL='',uploadHash='',photoAccessKey='';
   var busy=false,terminal=false,disposed=false,started=false,hashCleared=false,operation=0,activeFetch=null;
   var previewURLs=[],previewCancels=[],captions=[],phase='idle';
+  var initPromise=null,initialized=false,pollTimer=null,pollBusy=false,pollDeadline=0,uploadStarted=false,authRetry=false;
   var $=function(id){return document.getElementById(id)};
   function show(id,text,error){$(id).textContent=text;$(id).classList.toggle('error',!!error)}
   function controls(){
     $('code').disabled=busy||terminal||disposed||!!jobId;
     $('connect').disabled=busy||terminal||disposed||!!jobId;
     $('prepare').disabled=busy||terminal||disposed||!job||job.state!=='waiting';
+    $('prepare').hidden=terminal||(!!job&&job.mode===PUBLISH_MODE&&!authRetry);
   }
+  function oneClick(){return !!job&&job.mode===PUBLISH_MODE}
   function safeMessage(error){
     var data=(error&&error.error_data)||error||{};
     for(var depth=0;depth<4;depth++){
@@ -89,7 +93,7 @@ figure{margin:0;border:1px solid #dce2eb;border-radius:10px;overflow:hidden}figu
       var raw=await response.text();
       if(raw.length>(path==='open'?12*1024*1024:1024*1024))throw new Error('Сервер вернул слишком большой ответ.');
       var result;try{result=JSON.parse(raw)}catch(error){throw new Error('HTTP '+response.status+'. Сервер вернул непонятный ответ.')}
-      if(!response.ok)throw new Error('HTTP '+response.status+'. '+(result&&typeof result.error==='string'?result.error:'Сервер отклонил запрос.'));
+      if(!response.ok){var error=new Error('HTTP '+response.status+'. '+(result&&typeof result.error==='string'?result.error:'Сервер отклонил запрос.'));error.status=response.status;throw error}
       return result;
     }finally{clearTimeout(timer);if(activeFetch===controller)activeFetch=null}
   }
@@ -154,22 +158,91 @@ figure{margin:0;border:1px solid #dce2eb;border-radius:10px;overflow:hidden}figu
     show('progress','Фотографии готовы.');
     $('returnLink').textContent='Вернитесь во вкладку НейроМастера, где выбрали фотографии. Там нажмите «Опубликовать в ВКонтакте».';
   }
+  function stopPolling(){if(pollTimer!==null)clearTimeout(pollTimer);pollTimer=null}
+  function validateOpen(result){
+    var modern=result&&result.version===PUBLISH_VERSION&&result.mode===PUBLISH_MODE;
+    var legacy=result&&result.version===PROTOCOL_VERSION&&(!result.mode||result.mode==='prepare_only');
+    var states=modern?['waiting','working','publishing','published','failed','unknown']:['waiting','working','done','failed'];
+    if(!result||result.ok!==true||(!modern&&!legacy)||!Number.isSafeInteger(result.group_id)||result.group_id<=0||
+      typeof result.group_name!=='string'||!result.group_name.trim()||result.group_name.length>300||
+      !Number.isInteger(result.total)||result.total<1||result.total>3||!Number.isInteger(result.completed)||result.completed<0||result.completed>result.total||
+      !states.includes(result.state)||(result.state==='waiting'&&result.completed!==0)||
+      (['done','publishing','published'].includes(result.state)&&result.completed!==result.total)||
+      (job&&(job.group_id!==result.group_id||job.total!==result.total||oneClick()!==modern)))
+      throw new Error('Сервер вернул неполные сведения о публикации.');
+    return modern;
+  }
+  function finishUnknown(message){
+    terminal=true;phase='unknown';stopPolling();$('prepare').hidden=true;$('checkStatus').hidden=true;$('returnLink').hidden=false;
+    $('returnLink').textContent='Проверьте стену сообщества. Не отправляйте этот пост повторно, пока не убедитесь в результате.';
+    show('progress',message||'Не удалось подтвердить результат публикации.',true);clearSecrets();controls();
+  }
+  function publicationResult(result){
+    if(!result||result.ok!==true||result.version!==PUBLISH_VERSION||result.mode!==PUBLISH_MODE||result.total!==job.total||!Number.isInteger(result.completed)||result.completed<0||result.completed>job.total||
+      !['waiting','working','publishing','published','failed','unknown'].includes(result.state)||
+      (['publishing','published'].includes(result.state)&&result.completed!==job.total))
+      throw new Error('Сервер вернул неполные сведения о публикации.');
+    job.state=result.state;$('checkStatus').hidden=true;
+    if(result.state==='published'){
+      var pattern=new RegExp('^https://vk\\.(?:ru|com)/wall-'+job.group_id+'_[1-9][0-9]*$');
+      if(typeof result.link!=='string'||!pattern.test(result.link))throw new Error('Не получена правильная ссылка на опубликованный пост.');
+      terminal=true;phase='done';stopPolling();$('prepare').hidden=true;$('returnLink').hidden=true;
+      $('postLink').href=result.link;$('postLink').hidden=false;show('progress','Пост опубликован.');
+      $('intro').textContent='Текст и фотографии опубликованы в выбранном сообществе.';clearSecrets();controls();return;
+    }
+    if(result.state==='failed'){
+      terminal=true;phase='failed';stopPolling();$('returnLink').hidden=false;
+      $('returnLink').textContent='Вернитесь в НейроМастер. Текст и фотографии можно отправить заново после устранения причины.';
+      show('progress',typeof result.error==='string'?safeMessage({message:result.error}):'Публикация остановлена. Пост не опубликован.',true);
+      clearSecrets();controls();return;
+    }
+    if(result.state==='unknown'){finishUnknown(typeof result.error==='string'?safeMessage({message:result.error}):'Не удалось подтвердить результат публикации.');return}
+    phase='publishing';show('progress',result.state==='publishing'?'Публикуем пост…':'Проверяем подготовку фотографий…');
+  }
+  function schedulePoll(){
+    if(disposed||terminal||pollTimer!==null||pollBusy)return;
+    pollTimer=setTimeout(function(){pollTimer=null;pollPublication()},1500);
+  }
+  async function pollPublication(){
+    if(disposed||terminal||pollBusy||!oneClick())return;
+    if(!pollDeadline)pollDeadline=Date.now()+240000;
+    pollBusy=true;$('checkStatus').disabled=true;
+    try{
+      var result=await request('open',{job_id:jobId},15000);if(disposed)return;
+      validateOpen(result);publicationResult(result);
+    }catch(error){
+      if(disposed)return;
+      if(error.status===404||error.status===410){finishUnknown('Сведения об отправке больше недоступны. Результат публикации не подтверждён.');return}
+      show('progress','Не удалось получить результат. Продолжаем проверять эту отправку…');
+    }finally{
+      pollBusy=false;$('checkStatus').disabled=false;
+      if(!terminal&&!disposed){
+        if(Date.now()>=pollDeadline){
+          show('progress','Пока не удалось подтвердить результат. Проверьте стену сообщества или запросите состояние этой отправки ещё раз.',true);
+          $('checkStatus').hidden=false;
+        }else schedulePoll();
+      }
+    }
+  }
+  function startPolling(){pollDeadline=Date.now()+240000;schedulePoll()}
   async function openJob(data){
     if(!data||busy||terminal||disposed||jobId)return;
     var run=++operation;busy=true;jobId=data.id;appKey=data.key;controls();show('connectionResult','Открываем фотографии с сайта…');
     try{
       var result=await request('open',{job_id:jobId},30000);ensure(run);
-      if(!result||result.ok!==true||result.version!==PROTOCOL_VERSION||!Number.isSafeInteger(result.group_id)||result.group_id<=0||
-        typeof result.group_name!=='string'||!result.group_name.trim()||result.group_name.length>300||
-        !Number.isInteger(result.total)||result.total<1||result.total>3||!Number.isInteger(result.completed)||result.completed<0||result.completed>result.total||
-        !['waiting','working','done','failed'].includes(result.state)||
-        (result.state==='waiting'&&result.completed!==0)||(result.state==='done'&&result.completed!==result.total))
-        throw new Error('Сервер вернул неполные сведения о фотографиях.');
-      job={group_id:result.group_id,total:result.total,state:result.state};
+      var modern=validateOpen(result);
+      job={group_id:result.group_id,total:result.total,state:result.state,mode:modern?PUBLISH_MODE:'prepare_only'};
       $('groupName').textContent=result.group_name;$('jobCard').hidden=false;
+      if(!modern){
+        $('heading').textContent='Подготовить фотографии для поста';
+        $('intro').textContent='Разрешите доступ к фотографиям и подтвердите их загрузку. Пост вы опубликуете отдельной кнопкой на сайте НейроМастера.';
+        $('privacy').textContent='Ключ доступа ВКонтакте остаётся в этой вкладке. Здесь фотографии сохраняются в ВК; публикация поста не выполняется.';
+      }
       if(job.state==='waiting'){
         await previewImages(result.images,job.total,run);ensure(run);
-        show('progress','Проверьте фотографии и нажмите «Подготовить фотографии».');
+        show('progress',modern?'Готовим фотографии для публикации…':'Проверьте фотографии и нажмите «Подготовить фотографии».');
+      }else if(modern){
+        publicationResult(result);if(!terminal)startPolling();
       }else if(job.state==='done')completed();
       else{
         terminal=true;$('prepare').hidden=true;$('returnLink').hidden=false;
@@ -182,6 +255,11 @@ figure{margin:0;border:1px solid #dce2eb;border-radius:10px;overflow:hidden}figu
       if(disposed)return;
       show('connectionResult',safeMessage(error),true);forgetPreviews();job=null;jobId='';clearSecrets();$('jobCard').hidden=true;
     }finally{busy=false;controls()}
+    if(oneClick()&&!terminal&&!disposed&&job.state==='waiting'){
+      try{if(!await initPromise)throw new Error('Инициализация ВКонтакте не завершилась.');ensure(run);await prepare(true)}catch(error){
+        if(!disposed){authRetry=true;$('prepare').textContent='Продолжить';show('progress','Не удалось открыть запрос ВКонтакте. Нажмите «Продолжить».',true);controls()}
+      }
+    }
   }
   function trustedUpload(value){
     if(typeof value!=='string'||value.length>12000||/[\x00-\x20\x7f]/.test(value))throw new Error('ВК вернул неожиданный адрес загрузки.');
@@ -212,8 +290,9 @@ figure{margin:0;border:1px solid #dce2eb;border-radius:10px;overflow:hidden}figu
   }
   async function prepare(){
     if(busy||terminal||disposed||!job||job.state!=='waiting')return;
-    var run=++operation;busy=true;started=true;controls();phase='auth';show('progress','Разрешите доступ к фотографиям в окне ВКонтакте.');
+    var run=++operation,lastRecord=false;busy=true;started=true;authRetry=false;controls();phase='auth';show('progress','Разрешите доступ к фотографиям в окне ВКонтакте.');
     try{
+      if(!initialized){await bridge('VKWebAppInit',{});ensure(run);initialized=true}
       var authorization=await bridge('VKWebAppGetAuthToken',{app_id:APP_ID,scope:'photos'});ensure(run);
       if(!authorization||typeof authorization.access_token!=='string'||!authorization.access_token)throw new Error('ВК не вернул ключ доступа.');
       token=authorization.access_token;
@@ -222,30 +301,49 @@ figure{margin:0;border:1px solid #dce2eb;border-radius:10px;overflow:hidden}figu
         phase='address';show('progress',label+'Получаем адрес загрузки…');
         var server=await vk('photos.getWallUploadServer',{group_id:job.group_id});ensure(run);
         uploadURL=trustedUpload(server&&server.upload_url);
-        phase='upload';show('progress',label+'Передаём файл в ВКонтакте…');
+        phase='upload';uploadStarted=true;show('progress',label+'Передаём файл в ВКонтакте…');
         var uploaded=receivedPhoto(await request('upload',{job_id:jobId,index:index,upload_url:uploadURL},60000));ensure(run);uploadHash=uploaded.hash;
         phase='saving';var reservation=await request('saving',{job_id:jobId,index:index});ensure(run);
         if(!reservation||reservation.ok!==true||reservation.state!=='working')throw new Error('Сервер не подтвердил разрешение сохранить фотографию.');
         phase='save';show('progress',label+'Сохраняем фотографию…');
         var saved=await vk('photos.saveWallPhoto',{group_id:job.group_id,server:uploaded.server,photo:uploaded.photo,hash:uploaded.hash});ensure(run);
-        var photo=savedPhoto(saved);phase='record';
+        var photo=savedPhoto(saved);phase='record';lastRecord=index+1===job.total;
         var recorded=await request('saved',{job_id:jobId,index:index,photo:photo});ensure(run);
-        if(!recorded||recorded.ok!==true||recorded.total!==job.total||recorded.completed!==index+1||recorded.state!==(index+1===job.total?'done':'working'))
+        var finalStates=oneClick()?['publishing','published','failed','unknown']:['done'];
+        if(!recorded||recorded.ok!==true||recorded.total!==job.total||recorded.completed!==index+1||!(lastRecord?finalStates:['working']).includes(recorded.state))
           throw new Error('Не получено подтверждение готовности фотографии.');
         captions[index].textContent=(index+1)+' из '+job.total+' · готово';uploadURL='';uploadHash='';photoAccessKey='';
+        if(lastRecord&&oneClick()){publicationResult(recorded);if(!terminal)startPolling()}
       }
-      phase='done';completed();
+      if(!oneClick()){phase='done';completed()}
     }catch(error){
       if(disposed)return;
+      if(oneClick()&&phase==='auth'&&!uploadStarted){
+        authRetry=true;$('prepare').textContent='Разрешить доступ к фотографиям';
+        show('progress','Доступ к фотографиям не получен. Нажмите «Разрешить доступ к фотографиям», чтобы продолжить.\n'+safeMessage(error),true);return;
+      }
+      if(oneClick()&&phase==='record'&&lastRecord){
+        phase='publishing';show('progress','Проверяем результат отправки…');await pollPublication();return;
+      }
       terminal=true;var label=phase==='auth'?'Доступ к фотографиям не получен. ':phase==='address'?'Не получен адрес загрузки. ':
         phase==='record'?'Не получено подтверждение сайта. ':phase==='save'?'Сохранение фотографии не подтверждено. ':'Подготовка фотографии остановлена. ';
       var diagnostic=safeMessage(error),details=label+diagnostic;
-      if(!/пост не создавал[а-яё]*/i.test(diagnostic))details+='\nПост не создавался.';
+      if(!oneClick()&&!/пост не создавал[а-яё]*/i.test(diagnostic))details+='\nПост не создавался.';
       if(!/повтор[^.\n]{0,30}отключ[её]н/i.test(diagnostic))details+='\nПовтор отключён.';
       show('progress',details,true);
       $('returnLink').hidden=false;
-      try{await request('fail',{job_id:jobId},5000)}catch(ignored){}
-    }finally{clearSecrets();busy=false;controls()}
+      try{
+        var failure=await request('fail',{job_id:jobId},5000);
+        if(oneClick()&&failure&&['publishing','published','unknown'].includes(failure.state)){
+          terminal=false;
+          try{publicationResult(failure)}catch(ignoredResult){show('progress','Проверяем результат отправки…')}
+          if(!terminal)startPolling();
+        }
+      }catch(ignored){}
+    }finally{
+      token='';uploadURL='';uploadHash='';photoAccessKey='';
+      if(terminal||disposed)clearSecrets();busy=false;controls();
+    }
   }
   function incoming(value){if(!jobId&&!busy&&!terminal&&!disposed){var data=parseFragment(value);if(data)openJob(data)}}
   if(typeof vkBridge==='undefined'){
@@ -261,14 +359,15 @@ figure{margin:0;border:1px solid #dce2eb;border-radius:10px;overflow:hidden}figu
     return openJob(data);
   };
   $('prepare').onclick=prepare;
+  $('checkStatus').onclick=function(){if(!disposed&&!terminal&&!pollBusy){pollDeadline=Date.now()+240000;pollPublication()}};
   window.addEventListener('hashchange',function(){incoming(location.hash)});
   vkBridge.subscribe(function(event){if(event&&event.detail&&event.detail.type==='VKWebAppChangeFragment')incoming(event.detail.data&&event.detail.data.location)});
   window.addEventListener('pagehide',function(){
     disposed=true;terminal=true;operation++;
-    if(activeFetch)activeFetch.abort();forgetPreviews();clearSecrets();controls();
-    if(phase!=='done')show('progress',started?'Подготовка остановлена. Вернитесь в НейроМастер и проверьте результат. Повтор отключён.':'Окно закрыто. Откройте фотографии заново со страницы НейроМастера.');
+    stopPolling();if(activeFetch)activeFetch.abort();forgetPreviews();clearSecrets();controls();
+    if(phase!=='done')show('progress',started?'Окно закрыто. Проверьте результат на стене сообщества. Повторная отправка здесь отключена.':'Окно закрыто. Откройте фотографии заново со страницы НейроМастера.');
   });
-  bridge('VKWebAppInit',{}).catch(function(error){if(!disposed)show('connectionResult',safeMessage(error),true)});
+  initPromise=bridge('VKWebAppInit',{}).then(function(){initialized=true;return true},function(error){if(!disposed)show('connectionResult',safeMessage(error),true);return false});
   controls();incoming(location.hash);
 })();
 </script></body></html>
