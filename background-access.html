@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer"><meta name="nm-check-version" content="background-access-20261024-1">
+<title>НейроМастер — проверка подключения</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:20px;background:#f7f8fa;color:#192335;font:16px/1.5 system-ui,sans-serif}
+main{max-width:640px;margin:auto}h1{font-size:25px;line-height:1.25;margin:0 0 14px}.card{padding:24px;background:#fff;border:1px solid #dce2eb;border-radius:14px}
+p{margin:0 0 16px}button{background:#0867d5;color:#fff;border:0;border-radius:8px;font:inherit;min-height:48px;padding:12px 18px;cursor:pointer}
+button:disabled{opacity:.45;cursor:default}.result{overflow-wrap:anywhere;margin:18px 0 0}.error{color:#a62626}.muted{color:#59677a;font-size:14px}
+@media(max-width:500px){body{padding:12px}.card{padding:18px}h1{font-size:22px}button{width:100%}}
+</style></head><body><main><section class="card">
+<h1>Проверка подключения</h1>
+<p>Проверим, сможет ли НейроМастер готовить фотографии без перехода во ВКонтакте при каждой публикации.</p>
+<p>Нажимая кнопку, вы разрешаете передать нашему серверу доступ к фотографиям для одной проверки. Сервер не сохранит ключ доступа. Фотографии и посты не отправляются.</p>
+<button id="check" type="button" disabled>Проверить подключение</button>
+<p id="result" class="result" role="status" aria-live="polite">Проверяем готовность…</p>
+<p class="muted" style="margin:16px 0 0">Проверка для владельца НейроМастера. Результат также появится в открытом окне на компьютере.</p>
+</section></main><script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
+<script>
+(function(){
+  'use strict';
+  var APP_ID=54823530,API='https://vpsneuromaster.ru/vk-access-probe/';
+  var capability='',disposed=false,started=false,controller=null,expiryTimer=null;
+  var check=document.getElementById('check'),result=document.getElementById('result');
+  function show(text,error){if(disposed)return;result.textContent=text;result.classList.toggle('error',!!error)}
+  function active(){if(disposed)throw new Error('stopped')}
+  function finish(text,error){capability='';check.disabled=true;clearTimeout(expiryTimer);show(text,error)}
+  function bridge(method,params){
+    return new Promise(function(resolve,reject){
+      var timer=setTimeout(function(){reject(new Error('bridge_timeout'))},30000);
+      Promise.resolve().then(function(){active();return vkBridge.send(method,params)}).then(function(value){clearTimeout(timer);resolve(value)},function(){clearTimeout(timer);reject(new Error('bridge_failed'))});
+    });
+  }
+  async function request(action,body){
+    active();
+    controller=new AbortController();
+    var current=controller,timer=setTimeout(function(){current.abort()},25000);
+    try{
+      var response=await fetch(API+action,{method:body?'POST':'GET',headers:Object.assign({'Authorization':'Bearer '+capability},body?{'Content-Type':'application/json'}:{}),
+        body:body?JSON.stringify(body):undefined,mode:'cors',credentials:'omit',redirect:'error',cache:'no-store',referrerPolicy:'no-referrer',signal:current.signal});
+      active();
+      if(!response.ok)throw new Error('request_failed');
+      var text=await response.text();active();
+      if(text.length>8192)throw new Error('invalid_response');
+      var data=JSON.parse(text);
+      if(!data||typeof data!=='object'||Array.isArray(data))throw new Error('invalid_response');
+      return data;
+    }finally{clearTimeout(timer);if(controller===current)controller=null}
+  }
+  var messages={
+    accepted:'Первый шаг работает: ВКонтакте принял запрос с нашего сервера. Фотографии и посты не отправлялись. Полную публикацию без перехода ещё нужно проверить.',
+    ip_bound:'ВКонтакте разрешает использовать этот доступ только с текущего подключения. Для публикации без перехода понадобится другой способ подключения.',
+    owner_mismatch:'В приложении открыт другой аккаунт ВКонтакте. Проверка предназначена для владельца НейроМастера.',
+    vk_error:'ВКонтакте отклонил проверку доступа. Результат сохранён в отчёте на компьютере; по нему определим следующий шаг.',
+    transport_error:'Сервер не смог получить ответ ВКонтакте. Результат появится в отчёте на компьютере.',
+    invalid_input:'ВКонтакте не предоставил нужный доступ к фотографиям. Проверка остановлена.',
+    invalid_response:'Ответ ВКонтакте не подтвердил возможность подключения. Результат появится в отчёте на компьютере.',
+    http_error:'ВКонтакте вернул ошибку соединения. Результат появится в отчёте на компьютере.'
+  };
+  check.onclick=async function(){
+    if(started||disposed||check.disabled||!capability)return;
+    started=true;check.disabled=true;clearTimeout(expiryTimer);
+    var auth=null,clean=null;
+    try{
+      show('Разрешите доступ к фотографиям в окне ВКонтакте.');
+      auth=await bridge('VKWebAppGetAuthToken',{app_id:APP_ID,scope:'photos'});active();
+      if(!auth||typeof auth.access_token!=='string'||!auth.access_token||auth.access_token.length>8192||typeof auth.scope!=='string'||auth.scope.length>1024||!auth.scope.split(/[,\s]+/).includes('photos'))throw new Error('auth_failed');
+      clean={access_token:auth.access_token,scope:auth.scope};
+      if(Number.isSafeInteger(auth.expires)&&auth.expires>=0)clean.expires=auth.expires;
+      auth=null;
+      show('Проверяем доступ с сервера…');
+      var pending=request('check',{auth:clean});clean=null;
+      var data=await pending;active();
+      var accepted=data.outcome==='accepted'&&data.server_method_ok===true&&data.background_publishing_verified===false&&data.files_sent===0&&data.posts_created===0;
+      var text=accepted?messages.accepted:(data.outcome!=='accepted'&&messages[data.outcome])||messages.invalid_response;
+      finish(text,!accepted);
+    }catch(ignored){finish('Проверка не завершилась. Сообщите об этом в чат НейроМастера. Отчёт на компьютере сохранится автоматически; повторно нажимать кнопку не нужно.',true)}
+    finally{auth=null;clean=null;capability=''}
+  };
+  window.addEventListener('pagehide',function(){disposed=true;capability='';check.disabled=true;clearTimeout(expiryTimer);if(controller)controller.abort()});
+  var match=/^#nm_access=([A-Za-z0-9_-]{43})$/.exec(location.hash||'');
+  if(!match){finish('Откройте проверку командой из задания в пульте НейроМастера.',true);return}
+  capability=match[1];match=null;
+  try{history.replaceState(null,'',location.pathname+location.search)}catch(ignored){}
+  if(typeof vkBridge==='undefined'||!/(?:^|[?&])vk_app_id=54823530(?:&|$)/.test(location.search||'')){
+    finish('Откройте эту проверку внутри приложения ВКонтакте по заданию в пульте.',true);return;
+  }
+  expiryTimer=setTimeout(function(){if(!started)finish('Время проверки истекло. Сообщите об этом в чат НейроМастера.',true)},20*60*1000);
+  (async function(){
+    try{
+      await bridge('VKWebAppInit',{});active();
+      try{await bridge('VKWebAppSetLocation',{location:'',replace_state:true})}catch(ignored){}
+      active();var health=await request('health');active();
+      if(health.ok!==true||health.ready!==true)throw new Error('not_ready');
+      check.disabled=false;show('Всё готово. Нажмите «Проверить подключение».');
+    }catch(ignored){finish('Проверка недоступна или её время истекло. Посмотрите результат в открытом окне на компьютере.',true)}
+  })();
+})();
+</script></body></html>

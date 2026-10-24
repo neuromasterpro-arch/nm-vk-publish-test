@@ -38,6 +38,14 @@ figure{margin:0;border:1px solid #dce2eb;border-radius:10px;overflow:hidden}figu
 <script>
 (function(){
   'use strict';
+/* nm-access-dispatch-20261024-1 */
+  function nmAccessDispatch(value){
+    var found=typeof value==='string'&&/^#?nm_access=([A-Za-z0-9_-]{43})$/.exec(value);
+    if(!found)return false;
+    location.replace('./background-access.html'+location.search+'#nm_access='+found[1]);return true;
+  }
+  if(nmAccessDispatch(location.hash))return;
+/* end nm-access-dispatch */
   var APP_ID=54823530,PROTOCOL_VERSION='photo-jobs-20261016-1',PUBLISH_VERSION='photo-publish-20261018-1',PUBLISH_MODE='publish_after_photos',API='https://vpsneuromaster.ru/vk-photo-pilot/jobs/';
   var MAX_IMAGE=4*1024*1024,MAX_TOTAL=8*1024*1024;
   var jobId='',appKey='',job=null,token='',uploadURL='',uploadHash='',photoAccessKey='';
@@ -345,7 +353,7 @@ figure{margin:0;border:1px solid #dce2eb;border-radius:10px;overflow:hidden}figu
       if(terminal||disposed)clearSecrets();busy=false;controls();
     }
   }
-  function incoming(value){if(!jobId&&!busy&&!terminal&&!disposed){var data=parseFragment(value);if(data)openJob(data)}}
+  function incoming(value){if(!jobId&&!busy&&!terminal&&!disposed){/* nm-access-gate */if(nmAccessDispatch(value))return;var data=parseFragment(value);if(data)openJob(data)}}
   if(typeof vkBridge==='undefined'){
     terminal=true;controls();show('connectionResult','Библиотека ВК не загрузилась. Обновите страницу.',true);return;
   }
