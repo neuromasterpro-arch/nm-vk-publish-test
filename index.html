@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ru"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="referrer" content="no-referrer"><meta name="nm-check-version" content="photo-publish-20261026-1">
+<meta name="referrer" content="no-referrer"><meta name="nm-check-version" content="photo-publish-20261027-1">
 <title>НейроМастер — публикация ВКонтакте</title>
 <style>
 :root{--bg:#f2f3f5;--card:#fff;--tx:#000;--tx2:#6d7885;--line:#dce1e6;--soft:#ebedf0;--accent:#0077ff;--accent-soft:#e5f0ff;--ok:#4bb34b;--err:#e64646;--warn:#f0a000;--note:#fff6e0;--note-tx:#5c4400;color-scheme:light}
@@ -27,7 +27,7 @@ h1{font-size:22px;line-height:1.25;margin:0 0 6px;font-weight:600}
 .keep{display:flex;gap:10px;align-items:flex-start;text-align:left;background:var(--note);color:var(--note-tx);border-radius:12px;padding:12px 14px;margin:16px 0 0;font-size:15px;line-height:1.4}
 .keep svg{flex:none;width:20px;height:20px;margin-top:1px}
 .actions{display:grid;gap:10px;margin-top:20px}
-[data-screen=unknown] #wallLink{order:-1;background:var(--accent);color:#fff}[data-screen=unknown] #backLink{background:var(--accent-soft);color:var(--accent)}
+[data-screen=unknown] #wallLink{order:-1;background:var(--accent);color:#fff}[data-screen=unknown] #backLink,[data-screen=unknown] #closeApp{background:var(--accent-soft);color:var(--accent)}
 .button{display:flex;align-items:center;justify-content:center;width:100%;min-height:48px;padding:12px 16px;border:0;border-radius:10px;background:var(--accent);color:#fff;font:inherit;font-weight:500;text-align:center;text-decoration:none;cursor:pointer}
 .button.secondary{background:var(--accent-soft);color:var(--accent)}.button:disabled{opacity:.5;cursor:default}
 .button:focus-visible,summary:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
@@ -60,6 +60,7 @@ h1{font-size:22px;line-height:1.25;margin:0 0 6px;font-weight:600}
 <p id="detail" class="detail" hidden></p>
 <p id="keepOpen" class="keep" hidden><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 5.5v5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="10" cy="14.4" r="1.2" fill="currentColor"/></svg><span>Не закрывайте это окно и не сворачивайте ВКонтакте до конца публикации. Обычно это меньше минуты.</span></p>
 <div id="actions" class="actions" hidden>
+<button id="closeApp" class="button" type="button" hidden>Вернуться в браузер</button>
 <button id="prepare" class="button" type="button" hidden>Разрешить доступ к фотографиям</button>
 <button id="checkStatus" class="button" type="button" hidden>Проверить ещё раз</button>
 <a id="backLink" class="button" href="https://neuromasterpro.ru/" target="_blank" rel="noopener" hidden>Вернуться на НейроМастер</a>
@@ -67,6 +68,7 @@ h1{font-size:22px;line-height:1.25;margin:0 0 6px;font-weight:600}
 <a id="wallLink" class="button secondary" href="#" target="_blank" rel="noopener noreferrer" hidden>Открыть стену сообщества</a>
 </div>
 <p id="closeHint" class="hint" hidden>Окно можно закрыть — результат уже на странице НейроМастера.</p>
+<p id="browserHint" class="hint" hidden>Ваш текст и фото остались на странице НейроМастера в браузере. Если браузер не открылся сам, переключитесь на него.</p>
 </section>
 <details id="connectCard" class="manual" hidden>
 <summary>У меня есть код с сайта</summary>
@@ -89,7 +91,9 @@ h1{font-size:22px;line-height:1.25;margin:0 0 6px;font-weight:600}
   if(nmAccessDispatch(location.hash))return;
 /* end nm-access-dispatch */
   var APP_ID=54823530,PROTOCOL_VERSION='photo-jobs-20261016-1',PUBLISH_VERSION='photo-publish-20261018-1',PUBLISH_MODE='publish_after_photos',API='https://vpsneuromaster.ru/vk-photo-pilot/jobs/';
-  var SITE='https://neuromasterpro.ru',ICONS=['spinner','done','failed','unknown','info'],ACTIONS=['prepare','checkStatus','backLink','postLink','wallLink','closeHint'];
+  var SITE='https://neuromasterpro.ru',ICONS=['spinner','done','failed','unknown','info'],ACTIONS=['closeApp','prepare','checkStatus','backLink','postLink','wallLink','closeHint','browserHint'];
+  // The VK app on a phone: the site stays open in the browser, so we return there instead of opening a new page.
+  var NATIVE=/^mobile_(?:android|iphone|ipad)/.test(new URLSearchParams(location.search).get('vk_platform')||'');
   var jobId='',appKey='',job=null,token='',uploadURL='',uploadHash='',photoAccessKey='',backURL='',popupWindow=false;
   var busy=false,terminal=false,disposed=false,started=false,hashCleared=false,operation=0,activeFetch=null;
   var phase='idle',photoIndex=null,savedCount=0,swipeLocked=false;
@@ -113,7 +117,7 @@ h1{font-size:22px;line-height:1.25;margin:0 0 6px;font-weight:600}
   function details(text){$('detail').textContent=text?'Причина: '+text:'';$('detail').hidden=!text}
   function actions(visible){
     ACTIONS.forEach(function(id){$(id).hidden=visible.indexOf(id)===-1});
-    $('actions').hidden=!visible.some(function(id){return id!=='closeHint'});controls();
+    $('actions').hidden=!visible.some(function(id){return id!=='closeHint'&&id!=='browserHint'});controls();
   }
   function steps(visible){$('steps').hidden=!visible;$('bar').hidden=!visible;$('keepOpen').hidden=!visible}
   function step(id,state){$(id).dataset.s=state}
@@ -130,7 +134,9 @@ h1{font-size:22px;line-height:1.25;margin:0 0 6px;font-weight:600}
   }
   function returnActions(primary){
     var list=primary.slice();
-    if(popupWindow)list.push('closeHint');else if(backURL)list.unshift('backLink');
+    if(popupWindow)list.push('closeHint');
+    else if(NATIVE)list.push('closeApp','browserHint');
+    else if(backURL)list.unshift('backLink');
     return list;
   }
   function lockSwipe(on){
@@ -261,6 +267,29 @@ h1{font-size:22px;line-height:1.25;margin:0 0 6px;font-weight:600}
     details((technical||'').replace(/\s*Повтор отключён\.?/g,''));
     actions(returnActions([]).filter(function(id){return id!=='closeHint'}));
   }
+  function closeApp(){
+    // Closing the VK window returns the phone to the browser tab that holds the post.
+    bridge('VKWebAppClose',{status:phase==='done'?'success':'failed'}).catch(function(){
+      show('progress','Переключитесь на браузер: страница НейроМастера с вашим постом осталась там.');
+    });
+  }
+  function closePopup(){
+    // Desktop window opened by the site: try to close it; VK may refuse, then the hint stays.
+    setTimeout(function(){try{window.top.close()}catch(ignored){}},1600);
+  }
+  function reset(){
+    // A new publication arrived while the previous result is still on screen.
+    operation++;stopPolling();if(activeFetch)activeFetch.abort();clearSecrets();lockSwipe(false);
+    job=null;jobId='';busy=false;terminal=false;started=false;uploadStarted=false;authRetry=false;hashCleared=false;
+    phase='idle';photoIndex=null;savedCount=0;pollBusy=false;pollDeadline=0;backURL='';popupWindow=false;
+    $('subtitle').hidden=true;steps(false);actions([]);
+  }
+  function fresh(value){
+    var data=parseFragment(value);
+    // Never switch while photos of the current publication are being transferred or published.
+    if(data&&!disposed&&!busy&&data.id!==jobId&&(terminal||!job||!uploadStarted)&&(jobId||terminal))reset();
+    incoming(value);
+  }
   function finishUnknown(reason){
     terminal=true;phase='unknown';stopPolling();lockSwipe(false);steps(false);
     screen('unknown','Результат не подтверждён',(reason?reason+'\n':'')+'Пост мог опубликоваться. Проверьте стену сообщества, прежде чем отправлять его снова.');
@@ -276,9 +305,10 @@ h1{font-size:22px;line-height:1.25;margin:0 0 6px;font-weight:600}
       var pattern=new RegExp('^https://vk\\.(?:ru|com)/wall-'+job.group_id+'_[1-9][0-9]*$');
       if(typeof result.link!=='string'||!pattern.test(result.link))throw new Error('Не получена правильная ссылка на опубликованный пост.');
       terminal=true;phase='done';stopPolling();lockSwipe(false);steps(false);
-      $('postLink').href=result.link;$('postLink').classList.toggle('secondary',!!backURL&&!popupWindow);
+      $('postLink').href=result.link;
       screen('done','Пост опубликован',popupWindow?'':'Текст и фотографии опубликованы в сообществе.');
-      actions(returnActions(['postLink']));clearSecrets();haptic('success');return;
+      $('postLink').classList.toggle('secondary',!!backURL&&!popupWindow||NATIVE);
+      actions(returnActions(['postLink']));clearSecrets();haptic('success');if(popupWindow)closePopup();return;
     }
     if(result.state==='failed'){
       terminal=true;phase='failed';stopPolling();
@@ -461,13 +491,17 @@ h1{font-size:22px;line-height:1.25;margin:0 0 6px;font-weight:600}
     return openJob(data);
   };
   $('prepare').onclick=prepare;
+  $('closeApp').onclick=closeApp;
   $('checkStatus').onclick=function(){if(!disposed&&!terminal&&!pollBusy){pollDeadline=Date.now()+240000;work('post','Проверяем результат…');pollPublication()}};
-  window.addEventListener('hashchange',function(){incoming(location.hash)});
+  window.addEventListener('hashchange',function(){fresh(location.hash)});
   vkBridge.subscribe(function(event){
     var detail=event&&event.detail;if(!detail)return;
-    if(detail.type==='VKWebAppChangeFragment')incoming(detail.data&&detail.data.location);
+    if(detail.type==='VKWebAppChangeFragment')fresh(detail.data&&detail.data.location);
+    else if(detail.type==='VKWebAppViewRestore')fresh(location.hash);
     else if(detail.type==='VKWebAppUpdateConfig'&&detail.data)appearance(detail.data.appearance);
   });
+  document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')fresh(location.hash)});
+  window.addEventListener('pageshow',function(event){if(event&&event.persisted)location.reload()});
   window.addEventListener('pagehide',function(){
     disposed=true;terminal=true;operation++;
     stopPolling();if(activeFetch)activeFetch.abort();clearSecrets();controls();
